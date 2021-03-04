@@ -1,0 +1,33 @@
+app: tcx-dlp-scanning
+service: tcx-dlp-scanning
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: us-east-1
+  # environment:
+    # add dynamodb table here
+  # iamRoleStatements:
+    # role to allow getting, updating, putting items in db
+  
+functions:
+  create:
+    handler: dlpFunctions/create.create
+    events:
+      - http:
+          path: dlptrigger
+          method: post
+          cors: true
+          # private: true
+
+  get:
+    handler: dlpFunctions/get.get
+    events:
+      - http:
+          path: dlptrigger
+          method: get
+          cors: true
+          # private: true
+
+# resources:
+  # Put dynamodbtable and eks cluster here
