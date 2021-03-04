@@ -1,4 +1,5 @@
-app: tcx-dlp-scanning
+org: mbaghel
+app: tcs-aws-devops-dlp
 service: tcx-dlp-scanning
 
 provider:

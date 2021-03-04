@@ -1,4 +1,4 @@
-export const get = (event, context) => {
+export const get = async (event, context) => {
  
   console.log(event);
   console.log(context);
