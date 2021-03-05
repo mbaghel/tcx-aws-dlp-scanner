@@ -1,15 +1,22 @@
 org: mbaghel
 app: tcs-aws-devops-dlp
 service: tcx-dlp-scanning
+frameworkVersion: '2.28.6'
 
 provider:
   name: aws
   runtime: nodejs12.x
   region: us-east-1
-  # environment:
-    # add dynamodb table here
-  # iamRoleStatements:
-    # role to allow getting, updating, putting items in db
+  stage: dev
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
   
 functions:
   create:
@@ -30,5 +37,27 @@ functions:
           cors: true
           # private: true
 
-# resources:
-  # Put dynamodbtable and eks cluster here
+resources:
+  Resources:
+    DlpStatusItemsTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: projectId
+            AttributeType: S
+          -
+            AttributeName: resourceId
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: projectId
+            KeyType: HASH
+          -
+            AttributeName: resourceId
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
