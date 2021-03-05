@@ -1,8 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDB  } from 'aws-sdk';
+import { getDefaultItem } from '../helpers/generateItem';
 
 // eslint-disable-next-line
-const dynamoDb = new DynamoDB();
+const dynamoDb = new DynamoDB.DocumentClient();
 
 export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
 
@@ -36,24 +37,35 @@ export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      "projectId": {
-        S: queryParams.project_id,
-      },
-      "resourceId": {
-        S: queryParams.resource_id,
-      },
-    },
+      "projectId": queryParams.project_id,
+      "resourceId": queryParams.resource_id,
+    }
   }
 
   try {
     // eslint-disable-next-line
-    const item = await dynamoDb.getItem(params).promise();
+    const getRes = await dynamoDb.get(params).promise();
 
-    const res: APIGatewayProxyResult = {
-      statusCode: 200,
-      body: JSON.stringify(item)
+    if (getRes && getRes.Item) {
+      const res: APIGatewayProxyResult = {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          data: getRes.Item
+        })
+      }
+      return res
     }
-    return res
+
+    const newItem = getDefaultItem(queryParams.project_id, queryParams.resource_id);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+        data: newItem
+      })
+    }
 
   } catch (err) {
     console.error(err)

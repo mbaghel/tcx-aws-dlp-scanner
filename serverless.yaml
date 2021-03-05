@@ -10,6 +10,7 @@ provider:
   stage: dev
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+    PRESIDIO_ENDPOINT: ${param:PRESIDIO_ENDPOINT}
   iamRoleStatements:
     - Effect: Allow
       Action:
