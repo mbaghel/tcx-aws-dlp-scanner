@@ -1,6 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDB  } from 'aws-sdk';
 import { getDefaultItem } from '../helpers/generateItem';
+import { createResponse } from '../helpers/createResponse';
+import { DlpStatusItem } from '../types/AdoWorkItemsDlpStatus';
 
 // eslint-disable-next-line
 const dynamoDb = new DynamoDB.DocumentClient();
@@ -10,28 +12,21 @@ export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
   const queryParams = event.queryStringParameters;
 
   if (!queryParams || !queryParams.project_id) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        success: false,
-        message: "project_id is required"
-      }),
-      headers: {
-        "X-Amzn-ErrorType":"InvalidParameterException"
-      }
-    }
+    return createResponse(
+      400, 
+      { success: false, message: "project_id is required" },
+      { "X-Amzn-ErrorType": "InvalidParameterException" }
+    );
   }
   if (!queryParams.resource_id) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        success: false,
+    return createResponse(
+      400, 
+      { 
+        success: false, 
         message: "resource_id is required"
-      }),
-      headers: {
-        "X-Amzn-ErrorType":"InvalidParameterException"
-      }
-    }
+      },
+      { "X-Amzn-ErrorType":"InvalidParameterException" }
+    );
   }
 
   const params = {
@@ -46,34 +41,20 @@ export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     // eslint-disable-next-line
     const getRes = await dynamoDb.get(params).promise();
 
+    let item: DlpStatusItem;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (getRes && getRes.Item) {
-      const res: APIGatewayProxyResult = {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: true,
-          data: getRes.Item
-        })
-      }
-      return res
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      item = getRes.Item as DlpStatusItem;
+    } else {
+      item = getDefaultItem(queryParams.project_id, queryParams.resource_id);
     }
-
-    const newItem = getDefaultItem(queryParams.project_id, queryParams.resource_id);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        data: newItem
-      })
-    }
+    
+    return createResponse(200, { success: true, data: item });
 
   } catch (err) {
     console.error(err)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: "Internal Server Error"
-      })
-    }
+    return createResponse(500, { message: "Internal Server Error"})
   }
 }

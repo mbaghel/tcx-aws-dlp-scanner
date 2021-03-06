@@ -1,8 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDB } from 'aws-sdk';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { htmlToText } from 'html-to-text';
 
+import { createResponse } from '../helpers/createResponse';
 import { identifyPII, PresidioRes } from '../helpers/presidio';
 import { getDefaultItem } from '../helpers/generateItem';
 import {
@@ -30,42 +31,56 @@ const dynamoDb = new DynamoDB.DocumentClient();
 export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
 
   const bodyObj: unknown = JSON.parse(event.body);
- 
-  // eslint-disable-next-line
-  const projectId: string | null = _.get(bodyObj, PROJECT_ID_FIELD_PATH, null) as string | null;
-  if (!projectId) {
-    throw new Error(`Did not find expected property at path: ${PROJECT_ID_FIELD_PATH.join(', ')}`);
-  }
 
-  let resourceId: string | null;
-  for (const path of RESOURCE_ID_FIELD_PATHS) {
+  let projectId: string;
+  let resourceId: string | number;
+  let workItemType: WORKITEM_TYPES;
+  let fieldMap: FieldMapItem[];
+  try {
     // eslint-disable-next-line
-    resourceId = _.get(bodyObj, path, null) as string | null;
-    if (resourceId) {
-      break;
+    projectId = _.get(bodyObj, PROJECT_ID_FIELD_PATH, null) as string;
+    if (!projectId) {
+      throw new Error(`Did not find expected property at path: ${PROJECT_ID_FIELD_PATH.join(', ')}`);
     }
-  }
-  if (!resourceId) {
-    throw new Error(`Did not find expected property at path: ${RESOURCE_ID_FIELD_PATHS.map(path => path.join('.')).join(', ')}`);
-  }
 
-  let workItemType: WORKITEM_TYPES | null;
-  for (const path of WORKITEM_TYPE_FIELD_PATHS) {
-    // eslint-disable-next-line
-    workItemType = _.get(bodyObj, path, null) as WORKITEM_TYPES | null;
-    if (workItemType) {
-      break;
+    for (const path of RESOURCE_ID_FIELD_PATHS) {
+      // eslint-disable-next-line
+      resourceId = _.get(bodyObj, path, null) as string | number;
+      if (resourceId) {
+        break;
+      }
     }
-  } 
-  if (!workItemType) {
-    throw new Error(`Did not find expected property at path: ${WORKITEM_TYPE_FIELD_PATHS.map(path => path.join('.')).join(', ')}`)
-  }
+    if (!resourceId) {
+      throw new Error(`Did not find expected property at path: ${RESOURCE_ID_FIELD_PATHS.map(path => path.join('.')).join(', ')}`);
+    }
 
-  const fieldMap = TARGET_FIELDS[workItemType];
-  if (!fieldMap) {
-    throw new Error(`Unexpected resource of type ${workItemType}. Accepted values: ${Object.keys(TARGET_FIELDS).join(', ')}.`)
-  }
+    for (const path of WORKITEM_TYPE_FIELD_PATHS) {
+      // eslint-disable-next-line
+      workItemType = _.get(bodyObj, path, null) as WORKITEM_TYPES;
+      if (workItemType) {
+        break;
+      }
+    } 
+    if (!workItemType) {
+      throw new Error(`Did not find expected property at path: ${WORKITEM_TYPE_FIELD_PATHS.map(path => path.join('.')).join(', ')}`)
+    }
 
+    fieldMap = TARGET_FIELDS[workItemType];
+    if (!fieldMap) {
+      throw new Error(`Unexpected resource of type ${workItemType}. Accepted values: ${Object.keys(TARGET_FIELDS).join(', ')}.`)
+    }
+  } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (err && err.message) {
+      return createResponse(400, { 
+        success: false, 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        message: err.message },
+        { "X-Amzn-ErrorType":"ValidationException" }
+      );
+    }
+    return createResponse(500, { message: "Internal Server Error" });
+  }
   const records: FieldMapRecord[] = [];
   let recordString = '';
 
@@ -124,10 +139,7 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       Item: item
     }
     await dynamoDb.put(params).promise();
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'OK'})
-    }
+    return createResponse(200, { message: "OK" });
   }
 
   for (const piiDetail of piiDetailList) {
@@ -171,8 +183,5 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
 
   await dynamoDb.put(params).promise();
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'OK'})
-  }
+  return createResponse(200, { message: "OK" })
 }
