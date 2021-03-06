@@ -1,22 +1,21 @@
-org: mbaghel
-app: tcs-aws-devops-dlp
 service: tcx-dlp-scanning
-frameworkVersion: '2.28.6'
+frameworkVersion: '2'
 
 provider:
   name: aws
   runtime: nodejs12.x
-  region: us-east-1
-  stage: dev
-  ########## New API Key
+  region: us-east-1 # Override in deploy.sh or by passing option to CLI 
+  stage: dev # Override in deploy.sh or by passing option to CLI
+  memorySize: ${env:MEMORY_SIZE, 1024} # Memory size for Lambda functions
+  timeout: ${env:TIMEOUT, 6} # Timeout for Lambda functions
   apiKeys: 
-    - test-key
+    - firstKey
+    # Generate additional keys by listing them here (Serverless will autogenerate api keys)
   apiGateway:
     apiKeySourceType: AUTHORIZER
-  ##########
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
-    PRESIDIO_ENDPOINT: ${param:PRESIDIO_ENDPOINT}
+    PRESIDIO_ENDPOINT: ${env:PRESIDIO_ENDPOINT, ""} # !!! Must set manually if not using deploy.sh
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -61,7 +60,7 @@ resources:
   Resources:
     DlpStatusItemsTable:
       Type: 'AWS::DynamoDB::Table'
-      DeletionPolicy: Retain
+      DeletionPolicy: ${env:DELETION_POLICY, "Retain"} # Must be one of: 'Delete', 'Snapshot' or 'Retain'
       Properties:
         AttributeDefinitions:
           -
@@ -78,6 +77,6 @@ resources:
             AttributeName: resourceId
             KeyType: RANGE
         ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+          ReadCapacityUnits: ${env:READ_UNITS, 3}
+          WriteCapacityUnits: ${env:WRITE_UNITS, 3}
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
