@@ -8,6 +8,12 @@ provider:
   runtime: nodejs12.x
   region: us-east-1
   stage: dev
+  ########## New API Key
+  apiKeys: 
+    - test-key
+  apiGateway:
+    apiKeySourceType: AUTHORIZER
+  ##########
   environment:
     DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
     PRESIDIO_ENDPOINT: ${param:PRESIDIO_ENDPOINT}
@@ -20,23 +26,36 @@ provider:
       Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
   
 functions:
+  urlTokenAuthorizer:
+    handler: dist/urlAuthorizer.auth
+
   create:
-    handler: dlpFunctions/create.create
+    handler: dist/dlpFunctions/create.create
     events:
       - http:
           path: dlptrigger
           method: post
           cors: true
-          # private: true
+          private: true
+          authorizer:
+            name: urlTokenAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.querystring.code
+            type: request
 
   get:
-    handler: dlpFunctions/get.get
+    handler: dist/dlpFunctions/get.get
     events:
       - http:
           path: dlptrigger
           method: get
           cors: true
-          # private: true
+          private: true
+          authorizer:
+            name: urlTokenAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.querystring.code
+            type: request
 
 resources:
   Resources:

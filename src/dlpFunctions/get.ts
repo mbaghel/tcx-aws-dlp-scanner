@@ -3,11 +3,11 @@ import { DynamoDB  } from 'aws-sdk';
 import { getDefaultItem } from '../helpers/generateItem';
 import { createResponse } from '../helpers/createResponse';
 import { DlpStatusItem } from '../types/AdoWorkItemsDlpStatus';
+import { WrapHandler } from '../helpers/genericErrorHandler';
 
-// eslint-disable-next-line
 const dynamoDb = new DynamoDB.DocumentClient();
 
-export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+const getHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
 
   const queryParams = event.queryStringParameters;
 
@@ -37,24 +37,17 @@ export const get = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     }
   }
 
-  try {
-    // eslint-disable-next-line
-    const getRes = await dynamoDb.get(params).promise();
+  const getRes = await dynamoDb.get(params).promise();
 
-    let item: DlpStatusItem;
+  let item: DlpStatusItem;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (getRes && getRes.Item) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      item = getRes.Item as DlpStatusItem;
-    } else {
-      item = getDefaultItem(queryParams.project_id, queryParams.resource_id);
-    }
-    
-    return createResponse(200, { success: true, data: item });
-
-  } catch (err) {
-    console.error(err)
-    return createResponse(500, { message: "Internal Server Error"})
+  if (getRes && getRes.Item) {
+    item = getRes.Item as DlpStatusItem;
+  } else {
+    item = getDefaultItem(queryParams.project_id, queryParams.resource_id);
   }
+  
+  return createResponse(200, { success: true, data: item }); 
 }
+
+export const get = WrapHandler(getHandler);

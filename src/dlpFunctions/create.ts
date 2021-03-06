@@ -15,6 +15,7 @@ import {
   TARGET_FIELDS
 } from '../helpers/field-path-map';
 import { DlpStatus, StatusFields } from '../types/AdoWorkItemsDlpStatus';
+import { WrapHandler } from '../helpers/genericErrorHandler';
 
 interface FieldMapRecord {
   startIndex: number | null
@@ -28,7 +29,7 @@ interface FieldMapRecord {
 
 const dynamoDb = new DynamoDB.DocumentClient();
 
-export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+const createHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
 
   const bodyObj: unknown = JSON.parse(event.body);
 
@@ -37,14 +38,12 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
   let workItemType: WORKITEM_TYPES;
   let fieldMap: FieldMapItem[];
   try {
-    // eslint-disable-next-line
     projectId = _.get(bodyObj, PROJECT_ID_FIELD_PATH, null) as string;
     if (!projectId) {
       throw new Error(`Did not find expected property at path: ${PROJECT_ID_FIELD_PATH.join(', ')}`);
     }
 
     for (const path of RESOURCE_ID_FIELD_PATHS) {
-      // eslint-disable-next-line
       resourceId = _.get(bodyObj, path, null) as string | number;
       if (resourceId) {
         break;
@@ -55,7 +54,6 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     }
 
     for (const path of WORKITEM_TYPE_FIELD_PATHS) {
-      // eslint-disable-next-line
       workItemType = _.get(bodyObj, path, null) as WORKITEM_TYPES;
       if (workItemType) {
         break;
@@ -70,16 +68,13 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       throw new Error(`Unexpected resource of type ${workItemType}. Accepted values: ${Object.keys(TARGET_FIELDS).join(', ')}.`)
     }
   } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (err && err.message) {
       return createResponse(400, { 
         success: false, 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         message: err.message },
         { "X-Amzn-ErrorType":"ValidationException" }
       );
-    }
-    return createResponse(500, { message: "Internal Server Error" });
+    } 
   }
   const records: FieldMapRecord[] = [];
   let recordString = '';
@@ -87,20 +82,17 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
   for (const fieldItem of fieldMap) {
     let fieldValue: string | null = null;
     for (const fieldPath of fieldItem.fieldPaths) {
-      // eslint-disable-next-line
       fieldValue = _.get(bodyObj, fieldPath, null) as string | null;
       if (fieldValue) {
         break;
       }
     }
-    // eslint-disable-next-line
     if (!fieldValue || !_.isString(fieldValue)) {
       records.push({
         startIndex: null,
         endIndex: null,
         fieldMapItem: fieldItem,
         found: !!fieldValue,
-        // eslint-disable-next-line
         isString: _.isString(fieldValue) as boolean,
         rawValue: null,
         processedValue: null
@@ -108,7 +100,6 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       continue;
     }
     
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const plainTextFieldValue = htmlToText(fieldValue) as string;
     records.push({
       startIndex: recordString.length,
@@ -126,7 +117,6 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
 
   const item = getDefaultItem(projectId, resourceId);
 
-  // eslint-disable-next-line
   if (_.isNil(piiDetailList)) {
     for (const statusField of Object.values(StatusFields)) {
       item[statusField].status = DlpStatus.NO_ISSUES;
@@ -185,3 +175,5 @@ export const create = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
 
   return createResponse(200, { message: "OK" })
 }
+
+export const create = WrapHandler(createHandler);
