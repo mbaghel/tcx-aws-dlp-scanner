@@ -10,7 +10,8 @@ provider:
   timeout: ${env:TIMEOUT, 6} # Timeout for Lambda functions
   apiKeys: 
     - firstKey
-    # Generate additional keys by listing them here (Serverless will autogenerate api keys)
+    #- secondKey # Uncomment to add a second API Key
+    # Generate additional keys by listing them here
   apiGateway:
     apiKeySourceType: AUTHORIZER
   environment:

@@ -1,10 +1,8 @@
 <h3 align="center">Topcoder X - DLP scanning AWS implementation</h3>
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-
-The app is deployed on AWS and has the following prerequisites (other than node, npm and git):
+The app is deployed on AWS and has the following prerequisites (other than node and npm):
 
 * [Helm 3](https://helm.sh/docs/intro/install/) installed and working on the local machine. available on $PATH.
 * [AWS CLI](https://aws.amazon.com/cli/) installed, available on $PATH and [configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) for administrator access.
@@ -13,24 +11,62 @@ The app is deployed on AWS and has the following prerequisites (other than node,
 * [Serverless CLI](https://www.serverless.com/framework/docs/getting-started/) installed and set up by running:
 ```sh
 serverless
+``` 
+
+## Deployment
+
+A customizable script is included to automate the deployment process:
+```sh
+./deployment/deploy.sh
 ```
- 
 
-### Installation
+### Manual Deployment
 
-1. Clone the repo
+1. Launch the EKS cluster
    ```sh
-   git clone https://github.com/github_username/repo_name.git
+   eksctl create cluster \
+     --name tcx-dlp-cluster \
+     --nodes 3 \
+     --node-type "t2.medium" 
    ```
-2. Install NPM packages
+2. Install Ingress-Nginx
    ```sh
-   npm install
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.44.0/deploy/static/provider/aws/deploy.yaml
+   ```
+3. Install Presidio
+   ```sh
+   helm install presidio \
+     deployment/presidio \
+     --set ingress.enabled=true,ingress.class=nginx \
+     --namespace presidio --create-namespace
+   ```
+4. Store Presidio endpoint in an environment variable
+   ```sh
+   PRESIDIO_IP=$(kubectl get services \
+     ingress-nginx-controller \
+     --namespace ingress-nginx \
+     --output jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+   export PRESIDIO_ENDPOINT="http://$PRESIDIO_IP/presidio-presidio-analyzer/analyze"
+   ```
+5. Deploy Serverless service
+   ```sh
+   # Install dependencies
+   npm i
+   # Compile typescript files
+   npm run build
+   # Deploy service
+   serverless deploy
    ```
 
+## Customization
 
+Several variables can be set in the deploy script.
+The serverless.yaml file can also be edited directly.
 
-## Usage
+## Troubleshooting
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+### Status Code 500 error immediately after deploying service:
+  Sometime AWS takes a few minutes to attach IAM policy to Lambda functions. Please wait 5 minutes and try again.
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+### Status Code 500 error on POST method:
+  Ensure PRESIDIO_ENDPOINT has been set in environment or in serverless.yaml. Enpoint is only set automatically when using deploy script. 
