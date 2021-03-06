@@ -1,3 +1,6 @@
+/**
+ * Lambda authorizer that allows sending api key as a query param
+ */
 module.exports.auth = (event, context, callback) => {
   callback(null, {
     principalId: "api-key-auth",

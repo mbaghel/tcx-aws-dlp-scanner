@@ -8,13 +8,13 @@ set -e
 
 # AWS Region to deploy to 
 # see https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints
-AWS_REGION="us-east-1"
+AWS_REGION="us-east-2"
 
 # EKS Config
 EKS_CLUSTER_NAME="tcx-dlp-cluster"
 KUBE_VERSION="1.18" # Kubernetes version to use
-EKS_NODE_COUNT=3 # number of nodes to deploy
-EKS_NODE_TYPE="t2.medium" # see https://aws.amazon.com/ec2/instance-types/
+EKS_NODE_COUNT=2 # number of nodes to deploy
+EKS_NODE_TYPE="m5.large" # see https://aws.amazon.com/ec2/instance-types/
 
 # Serverless Config
 DEPLOY_STAGE="dev"
@@ -30,7 +30,7 @@ DELETION_POLICY="Delete" # DynamoDB Deletion Policy
 
 # Setup EKS cluster
 function setupEKS () {
-  echo "Creating EKS cluster with name \"EKS_CLUSTER_NAME\" in \"$AWS_REGION\"."
+  echo "Creating EKS cluster with name \"$EKS_CLUSTER_NAME\" in \"$AWS_REGION\"."
   # Create cluster
   eksctl create cluster \
     --name $EKS_CLUSTER_NAME \
